@@ -12,7 +12,7 @@ def yt(query):
     ydl = yt_dlp.YoutubeDL({"format":"bestaudio","quiet":True})
     info = ydl.extract_info(f"ytsearch:{query}", download=False)
     d = info["entries"][0]
-    return d["url"], d["title"], d["thumbnail"], d.get("duration", 0)
+    return d["url"], d["title"], d["thumbnail"]
 
 async def join(chat_id, url):
     await call.join_group_call(chat_id, InputStream(AudioPiped(url)))
@@ -22,6 +22,12 @@ async def change(chat_id, url):
 
 async def leave(chat_id):
     await call.leave_group_call(chat_id)
+
+async def pause(chat_id):
+    await call.pause_stream(chat_id)
+
+async def resume(chat_id):
+    await call.resume_stream(chat_id)
 
 async def start():
     await user.start()
