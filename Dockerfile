@@ -4,8 +4,9 @@ RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-RUN pip install --upgrade pip && \
-    pip install pyrogram tgcrypto yt-dlp aiofiles python-dotenv pytgcalls pycryptodome
+COPY requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
