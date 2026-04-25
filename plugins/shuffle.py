@@ -1,14 +1,14 @@
 # plugins/shuffle.py
 import random
 from pyrogram.types import Message
-from plugins import queues
 
-async def shuffle(client, message: Message):
+async def shuffle(client, message: Message, queues):
     chat_id = message.chat.id
+    queue_list = queues.get(chat_id, [])
     
-    if chat_id not in queues or len(queues[chat_id]) < 2:
+    if len(queue_list) < 2:
         await message.reply("🎲 Need at least 2 songs to shuffle!")
         return
     
-    random.shuffle(queues[chat_id])
+    random.shuffle(queue_list)
     await message.reply("🎲 Queue shuffled!")
