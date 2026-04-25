@@ -1,12 +1,17 @@
 FROM python:3.10-slim
 
-RUN apt-get update && apt-get install -y ffmpeg gcc g++ python3-dev libffi-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    ffmpeg gcc g++ python3-dev libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-RUN pip install --upgrade pip
+# Build cache ကိုချိုးဖျက်ရန်
+RUN echo "Building on: $(date)"
 
-RUN pip install cffi pycparser pyrogram tgcrypto yt-dlp aiofiles python-dotenv pycryptodome pytgcalls --no-deps
+COPY requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
