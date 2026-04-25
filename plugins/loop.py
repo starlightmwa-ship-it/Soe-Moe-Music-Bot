@@ -1,15 +1,12 @@
 # plugins/loop.py
 from pyrogram.types import Message
-from plugins import queues
 
-loop_modes = {}
+loop_modes = {}  # chat_id: 0=off, 1=on
 
-async def loop(client, message: Message):
+async def loop(client, message: Message, queues):
     chat_id = message.chat.id
     current = loop_modes.get(chat_id, 0)
-    current = (current + 1) % 3
+    loop_modes[chat_id] = 1 - current
     
-    loop_modes[chat_id] = current
-    mode_text = ["Off", "Single", "Queue"][current]
-    
+    mode_text = "ON" if loop_modes[chat_id] else "OFF"
     await message.reply(f"🔄 Loop mode: **{mode_text}**")
