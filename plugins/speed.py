@@ -1,7 +1,7 @@
 # plugins/speed.py
 from pyrogram.types import Message
 
-async def speed(client, message: Message, call):
+async def speed(client, message: Message, user, queues):
     args = message.text.split()
     if len(args) != 2:
         await message.reply("Usage: `/speed 0.5` to `2.0`")
@@ -16,5 +16,7 @@ async def speed(client, message: Message, call):
         return
     
     chat_id = message.chat.id
+    from pytgcalls import PyTgCalls
+    call = PyTgCalls(user)
     await call.change_stream(chat_id, speed=speed)
     await message.reply(f"⚡ Speed changed to `{speed}x`")
