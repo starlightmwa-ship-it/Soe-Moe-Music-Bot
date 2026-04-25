@@ -1,5 +1,4 @@
-cffi==1.16.0
-pycparser==2.21
+pysocks==1.7.1
 pyrogram==2.0.106
 tgcrypto==1.2.5
 yt-dlp==2024.11.18
