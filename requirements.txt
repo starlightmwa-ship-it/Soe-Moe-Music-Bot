@@ -1,4 +1,6 @@
 pyrogram==2.0.106
 tgcrypto==1.2.5
+pytgcalls==5.0.1
 yt-dlp==2024.11.18
 aiofiles==23.2.1
+python-dotenv==1.0.0
