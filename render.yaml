@@ -1,7 +1,9 @@
 services:
   - type: worker
     name: music-bot
-    runtime: python
+    runtime: image
+    image:
+      url: python:3.10-slim
     buildCommand: pip install -r requirements.txt
     startCommand: python music_bot.py
     envVars:
