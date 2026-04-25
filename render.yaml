@@ -14,6 +14,6 @@ services:
       - key: BOT_TOKEN
         value: 8783739539:AAFPM95HIrSJQ-yoPtc-r8guZ-QJFgPymWA
       - key: ASSISTANT_SESSION
-        value: BQHfijMAqr5u5rBZ8M2eMDxSPvLWYGO7G2Gyh0f03vos51TiHBtY2aN2Vl7sFxTHj1Pirzh3nF8tqWdjsoBS6KohqxsQnYOMsF3QMgbPZ_2M45w1xk_6tNuQW0MdyjCCdDEw-tqdaERGccfXu4PQ70XRV-fDQl5D55N9gDMjoxiG5VlhYfHf8WcKqRIEqjNDUzaEfECHJAkGV3IRxaeudjGHmTGYLNGUtBLWrFzx5hSzBXdGSP4afvkgj9G8
+        value: EqjNDUzaEfECHJAkGV3IRxaeudjGHmTGYLNGUtBLWrFzx5hSzBXdGSP4afvkgj9G8gBvjVtN-GxRDftKR3Pes6XECYjV7iQ8EhCEFWYVo_fm_vO-S2GQ7Ih-R8KKlv7OpJv6zGd6Y8n3UjhQ1T6RNSrFk0vQBgfISrQAAAAGmRHBgAA
       - key: OWNER_ID
         sync: false
