@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.21-alpine
 
 RUN apk add --no-cache git
 
@@ -11,13 +11,8 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o bot .
 
 FROM alpine:latest
-
 RUN apk --no-cache add ca-certificates
-
 WORKDIR /root/
-
-COPY --from=builder /app/bot .
-
+COPY --from=0 /app/bot .
 EXPOSE 8080
-
 CMD ["./bot"]
