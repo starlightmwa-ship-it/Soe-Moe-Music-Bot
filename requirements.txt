@@ -1,6 +1,6 @@
 pyrogram==2.0.106
 tgcrypto==1.2.5
-pytgcalls==3.0.0.dev24
+pytgcalls
 yt-dlp
 motor
 aiohttp
