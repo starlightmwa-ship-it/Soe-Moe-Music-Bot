@@ -1,9 +1,7 @@
 pyrogram==2.0.106
-tgcrypto==1.2.5
-py-tgcalls==2.2.10
-yt-dlp
-ffmpeg-python
-motor
-aiohttp
-flask
-python-dotenv
+pytgcalls==3.0.0
+tgCrypto==1.2.5
+yt-dlp==2024.11.18
+aiofiles==23.2.1
+pymongo==4.9.1
+python-dotenv==1.0.0
