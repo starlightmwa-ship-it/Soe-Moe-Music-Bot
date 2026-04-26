@@ -1,8 +1,10 @@
 pyrogram==2.0.106
 tgcrypto==1.2.5
-pytgcalls==1.2.9
+
+git+https://github.com/pytgcalls/pytgcalls.git
+
 yt-dlp
-ffmpeg-python
 motor
-flask
 aiohttp
+flask
+python-dotenv
