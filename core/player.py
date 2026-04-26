@@ -1,5 +1,4 @@
-from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
+from pyrogram import Client
 from assistant.userbot import app
 
 call = PyTgCalls(app)
