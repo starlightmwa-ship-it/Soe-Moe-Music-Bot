@@ -1,17 +1,19 @@
-from pyrogram import Client, filters
+from pyrogram import Client
+from core.player import stop
 from core.queue import pop, get_queue
 from core.player import join_and_play
 
-@Client.on_message(filters.command("skip"))
-async def skip(_, message):
-    chat_id = message.chat.id
+@Client.on_callback_query()
+async def cb(client, cb):
+    chat_id = cb.message.chat.id
 
-    pop(chat_id)
-    queue = get_queue(chat_id)
+    if cb.data == "skip":
+        pop(chat_id)
+        q = get_queue(chat_id)
+        if q:
+            await join_and_play(chat_id, q[0]["url"])
 
-    if not queue:
-        return await message.reply("❌ Queue empty")
+    elif cb.data == "stop":
+        await stop(chat_id)
 
-    song = queue[0]
-    await join_and_play(chat_id, song["url"])
-    await message.reply(f"⏭ {song['title']}")
+    await cb.answer()
