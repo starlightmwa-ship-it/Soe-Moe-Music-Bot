@@ -1,4 +1,4 @@
-from pyrogram import Client
+from pytgcalls import PyTgCalls
 from assistant.userbot import app
 
 call = PyTgCalls(app)
