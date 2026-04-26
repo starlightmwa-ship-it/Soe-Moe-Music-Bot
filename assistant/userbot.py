@@ -1,9 +1,4 @@
 from pyrogram import Client
 from config import API_ID, API_HASH, SESSION_STRING
 
-app = Client(
-    "assistant",
-    api_id=31427123,
-    api_hash=27b540811ee6d2423f86a779848515ee,
-    session_string=BQHfijMAhGoy0E7GCe5gQSmdBtM3BEFfPGBsf_pZYjcsxvWGMp3aRc0hxttuse9Os-twV9sagL85JEIerGlVe46r4-HIvPqDXx-h14BtHfwZHEIeDJV02iD5hUkaXsgNZBXbObhLPfE0t3QNIVlnGmG9eHhzjC_HxTW7KDhAJFLI1FQddmCYfsIGo5F-km0v6sig-XaYbL8q2RaDImfHBs2dfjrS8IvpETf2WnufIAwpTuhAb2aUYkwyLnTPYYgtqvD1Uro63tpssTzQA8WYn0c1E0Xf1JnVCVpoqUqYK2sSiCPRRGZXONpjENQ-Ogk1cdZlC1vSv3B5le3U17ccvEtuyjSsNwAAAAGmRHBgAA
-)
+app = Client("assistant", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
