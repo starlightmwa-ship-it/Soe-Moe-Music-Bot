@@ -4,3 +4,5 @@ pytgcalls
 yt-dlp
 ffmpeg-python
 motor
+flask
+aiohttp
