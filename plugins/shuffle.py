@@ -1,4 +1,4 @@
-# plugins/
+# plugins/shuffle.py
 import random
 from pyrogram.types import Message
 from config import AUTO_DELETE_SECONDS
