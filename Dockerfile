@@ -8,6 +8,7 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 RUN pip install pytgcalls==3.0.0.dev24 --no-deps
+RUN pip install yt-dlp --upgrade
 
 COPY . .
 
