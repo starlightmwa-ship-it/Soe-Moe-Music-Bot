@@ -1,74 +1,93 @@
-from pyrogram import Client, filters
-from pyrogram.types import ChatMemberStatus
-from core.youtube import search
-from core.queue import add, get_queue
-from core.player import join_and_play
-from plugins.player_ui import buttons
-from database.settings import get_settings
-from core.lang import t
+# plugins/play.py
+import yt_dlp
 import asyncio
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from config import AUTO_DELETE_SECONDS
 
-# ✅ Admin check
-async def is_admin(client, message):
-    member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    return member.status in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]
+ydl_opts = {
+    'format': 'bestaudio/best',
+    'quiet': True,
+    'no_warnings': True,
+}
 
-# 🧹 Auto delete
-async def auto_delete(msg):
-    await asyncio.sleep(10)
-    try:
-        await msg.delete()
-    except:
-        pass
+async def get_player_buttons(is_playing=True):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⏸ Pause", callback_data="pause"),
+            InlineKeyboardButton("⏹ Stop", callback_data="stop"),
+            InlineKeyboardButton("⏭ Skip", callback_data="skip"),
+        ],
+        [
+            InlineKeyboardButton("🔄 Loop", callback_data="loop"),
+            InlineKeyboardButton("🎲 Shuffle", callback_data="shuffle"),
+            InlineKeyboardButton("⚡ Speed", callback_data="speed"),
+        ],
+        [
+            InlineKeyboardButton("📋 Queue", callback_data="queue"),
+            InlineKeyboardButton("⚙️ Settings", callback_data="settings"),
+            InlineKeyboardButton("❌ Close", callback_data="close"),
+        ],
+    ])
 
-@Client.on_message(filters.command("play") & filters.group)
-async def play(client, message):
+async def search_youtube(query):
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            info = ydl.extract_info(f"ytsearch1:{query}", download=False)
+            if info['entries']:
+                track = info['entries'][0]
+                return {
+                    'title': track['title'],
+                    'url': track['webpage_url'],
+                    'duration': track.get('duration', 0),
+                    'thumbnail': track.get('thumbnail', ''),
+                }
+        except:
+            return None
+
+async def play(client, message: Message, bot, assistant, queues, group_settings):
     chat_id = message.chat.id
-
-    settings = await get_settings(chat_id)
-    lang = settings["lang"]
-
-    # 🔐 Admin only check
-    if settings["admin_only"]:
-        if not await is_admin(client, message):
-            return await message.reply(t(lang, "no_admin"))
-
-    # ❌ no query
-    if len(message.command) < 2:
-        m = await message.reply("❌ Give song name")
-        asyncio.create_task(auto_delete(m))
-        asyncio.create_task(auto_delete(message))
+    query = message.text.split(" ", 1)[1] if len(message.text.split()) > 1 else None
+    
+    if not query:
+        msg = await message.reply("⚠️ Usage: `/play <song name>`")
+        await asyncio.sleep(AUTO_DELETE_SECONDS)
+        await msg.delete()
+        await message.delete()
         return
-
-    query = " ".join(message.command[1:])
-
-    # 🔍 search youtube
-    data = search(query)
-
-    song = {
-        "title": data["title"],
-        "url": data["url"],
-        "thumb": data["thumb"]
-    }
-
-    queue = get_queue(chat_id)
-
-    # ▶️ play or queue
-    if not queue:
-        add(chat_id, song)
-
-        msg = await message.reply_photo(
-            song["thumb"],
-            caption=f"🎶 {song['title']}",
-            reply_markup=buttons()
+    
+    status_msg = await message.reply(f"🔍 Searching `{query[:50]}`...")
+    
+    track = await search_youtube(query)
+    if not track:
+        await status_msg.edit("❌ No results found!")
+        await asyncio.sleep(AUTO_DELETE_SECONDS)
+        await status_msg.delete()
+        await message.delete()
+        return
+    
+    if chat_id not in queues:
+        queues[chat_id] = []
+    
+    if not queues[chat_id] and not assistant.is_connected(chat_id):
+        await status_msg.edit(f"✅ Playing: **{track['title'][:50]}**")
+        
+        # Send player panel with thumbnail
+        player_msg = await bot.send_photo(
+            chat_id,
+            track['thumbnail'],
+            caption=f"🎵 **Now Playing**\n[{track['title'][:50]}]({track['url']})",
+            reply_markup=await get_player_buttons()
         )
-
-        await join_and_play(chat_id, song["url"])
-
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(track['url'], download=False)
+            audio_url = info['url']
+        
+        await assistant.join_group_call(chat_id, audio_url)
+        await status_msg.delete()
     else:
-        add(chat_id, song)
-        msg = await message.reply(f"➕ {song['title']}")
-
-    # 🧹 auto delete
-    asyncio.create_task(auto_delete(message))
-    asyncio.create_task(auto_delete(msg))
+        queues[chat_id].append(track)
+        await status_msg.edit(f"➕ Added to queue: **{track['title'][:50]}**\n📋 Position: `{len(queues[chat_id])}`")
+        await asyncio.sleep(AUTO_DELETE_SECONDS)
+        await status_msg.delete()
+        await message.delete()
