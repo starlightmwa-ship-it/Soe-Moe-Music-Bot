@@ -1,4 +1,4 @@
-# plugins/
+# plugins/settings.py
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from config import AUTO_DELETE_SECONDS
 import asyncio
