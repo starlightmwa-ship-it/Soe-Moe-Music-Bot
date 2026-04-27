@@ -1,4 +1,4 @@
-# plugins/
+# plugins/auth.py
 from pyrogram.types import Message
 from config import AUTO_DELETE_SECONDS
 import asyncio
