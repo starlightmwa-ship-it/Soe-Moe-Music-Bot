@@ -1,7 +1,6 @@
 pyrogram==2.0.106
-pytgcalls==4.0.0
-yt-dlp==2024.11.18
-asyncio==3.4.3
-aiofiles==23.2.1
-pymongo==4.9.1
-python-dotenv==1.0.0
+pytgcalls==5.0.0
+yt-dlp==2025.04.07
+aiofiles==24.1.0
+pymongo==4.10.1
+python-dotenv==1.0.1
