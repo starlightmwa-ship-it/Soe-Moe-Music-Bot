@@ -1,12 +1,13 @@
 # main.py
 import asyncio
 import sys
-from pyrogram import Client, filters
+import threading
+from pyrogram import Client, filters, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from config import API_ID, API_HASH, BOT_TOKEN, ASSISTANT_SESSION
 
-# Keep-alive module import
-import keep_alive
+# Keep-alive module import (Flask server for Render port binding)
+from keep_alive import keep_alive
 
 # ------- Event Loop Fix for Python 3.14+ -------
 if sys.version_info[:2] >= (3, 14):
@@ -15,6 +16,9 @@ if sys.version_info[:2] >= (3, 14):
     except RuntimeError:
         asyncio.set_event_loop(asyncio.new_event_loop())
 # ------------------------------------------------
+
+# Start Flask server in background thread for Render port binding
+threading.Thread(target=keep_alive, daemon=True).start()
 
 print("=" * 50)
 print("🎵 SOE MOE MUSIC BOT STARTING...")
@@ -61,6 +65,7 @@ async def get_player_buttons():
 
 @bot.on_message(filters.command(["start", "help"]))
 async def start_cmd(client, message):
+    print(f"✅ /start received from {message.from_user.id}")  # Debug log
     text = """
 🎵 **Soe Moe Music Bot** 🎵
 
@@ -92,18 +97,14 @@ async def play_handler(client, message):
         return
     
     await message.reply(f"🔍 Searching `{query[:50]}`...")
-    
-    # Simplified play logic - you can expand this
     await message.reply(f"✅ Playing: **{query[:50]}**")
 
 @bot.on_message(filters.command("pause"))
 async def pause_handler(client, message):
-    chat_id = message.chat.id
     await message.reply("⏸ Paused")
 
 @bot.on_message(filters.command("resume"))
 async def resume_handler(client, message):
-    chat_id = message.chat.id
     await message.reply("▶️ Resumed")
 
 @bot.on_message(filters.command("skip"))
@@ -221,9 +222,6 @@ async def callback_handler(client, callback_query: CallbackQuery):
 # ==================== MAIN ====================
 
 async def main():
-    # Start HTTP server for Render port binding
-    keep_alive.keep_alive()
-    
     await bot.start()
     await assistant.start()
     
@@ -236,7 +234,8 @@ async def main():
     # Start keep alive ping task
     asyncio.create_task(keep_alive_ping())
     
-    await asyncio.Event().wait()
+    # Keep bot running and listen for updates
+    await idle()
 
 if __name__ == "__main__":
     asyncio.run(main())
