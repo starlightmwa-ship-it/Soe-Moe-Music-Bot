@@ -1,24 +1,19 @@
-# core/player.py
+# core/player.py (သို့) main.py
 from pyrogram import Client
 from pytgcalls import PyTgCalls
 from config import API_ID, API_HASH, ASSISTANT_SESSION
 
-# Assistant Client ကို ဦးစွာ Create လုပ်ပါ
+# 1. Assistant Client ကို ဖန်တီးပါ
 assistant = Client(
-    "userbot",
+    ":memory:", # session string ကို တိုက်ရိုက်သုံးမယ်ဆိုရင် memory ကို သုံးပါ
     api_id=API_ID,
     api_hash=API_HASH,
     session_string=ASSISTANT_SESSION
 )
 
-# PyTgCalls ကို assistant နဲ့ Initialize လုပ်ပါ
+# 2. PyTgCalls ကို Assistant နဲ့ Initialize လုပ်ပါ
 call = PyTgCalls(assistant)
 
 async def start_call():
-    await assistant.start()
-    await call.start()
-    print("✅ Assistant and voice call started!")
-
-async def stop_call():
-    await call.stop()
-    await assistant.stop()
+    await assistant.start()  # Assistant ကို အရင်စတင်ပါ
+    await call.start()       # ပြီးမှ Call ကိုစတင်ပါ
