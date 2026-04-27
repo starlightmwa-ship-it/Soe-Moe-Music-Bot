@@ -7,7 +7,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
-RUN pip install pytgcalls
+RUN pip install pytgcalls==3.0.0.dev24 --no-deps
 
 COPY . .
 
