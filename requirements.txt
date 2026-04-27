@@ -1,6 +1,6 @@
 pyrogram==2.0.106
-youtube-dl
+pytgcalls==4.0.0
+yt-dlp==2024.11.18
 aiofiles==23.2.1
-asyncio==3.4.3
-pymongo==4.6.3
+pymongo==4.9.1
 python-dotenv==1.0.0
