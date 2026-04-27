@@ -1,32 +1,12 @@
-import asyncio
+# main.py
 from pyrogram import Client
-from config import API_ID, API_HASH, BOT_TOKEN
-from assistant.userbot import app as userbot
-from core.player import start_call
-from keep_alive import keep_alive
-from core.ping import auto_ping
+from pytgcalls import PyTgCalls
+from config import API_ID, API_HASH, ASSISTANT_SESSION
 
-# ✅ Plugin loader important
-bot = Client(
-    "bot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
-    plugins=dict(root="plugins")
-)
+# ဒီနေရာမှာ အောက်ပါအတိုင်း ဖြစ်ရပါမယ်
+assistant = Client(":memory:", api_id=API_ID, api_hash=API_HASH, session_string=ASSISTANT_SESSION)
+call = PyTgCalls(assistant)
 
-async def main():
-    # 🌐 keep alive server
-    keep_alive()
-
-    # 🤖 start bot + assistant
-    await bot.start()
-    await userbot.start()
-    await start_call()
-
-    # 📡 auto ping
-    asyncio.create_task(auto_ping())
-
-    print("✅ Music Bot Running...")
-
-bot.run(main())
+async def start_services():
+    await assistant.start()
+    await call.start()
