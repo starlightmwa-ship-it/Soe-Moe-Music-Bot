@@ -1,4 +1,5 @@
 # main.py
+import keep_alive
 import asyncio
 import sys
 import os
@@ -44,6 +45,7 @@ async def start_cmd(client, message):
 
 # ==================== MAIN ====================
 async def main():
+    keep_alive.keep_alive()  # HTTP server စတင်ရန်
     await bot.start()
     await assistant.start()
     print("✅ Bot and Assistant started!")
