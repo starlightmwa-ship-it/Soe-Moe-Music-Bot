@@ -9,7 +9,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Session file အတွက် write permission ပေးပါ
-RUN chmod -R 777 /app
-
 CMD ["python", "main.py"]
