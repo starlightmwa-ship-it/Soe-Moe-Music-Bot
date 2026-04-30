@@ -18,6 +18,7 @@ from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineK
 from pytgcalls import PyTgCalls
 from pytgcalls.types import Update
 from pytgcalls.types.input_stream import AudioStream, InputStream
+from pytgcalls.types.input_stream import AudioStream, InputStream
 from pytgcalls.types.input_stream.audio import YouTubeAudio
 
 # YouTube Download
