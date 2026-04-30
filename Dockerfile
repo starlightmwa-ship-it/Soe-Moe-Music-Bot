@@ -1,8 +1,8 @@
-FROM python:3.10-slim
+FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install FFmpeg (required for audio streaming)
+# FFmpeg ထည့်ပါ (Voice Chat အတွက် မရှိမဖြစ်)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
