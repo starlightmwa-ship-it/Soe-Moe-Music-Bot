@@ -15,9 +15,9 @@ from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
 # Voice Chat
+# PyTgCalls (Version 4.x)
 from pytgcalls import PyTgCalls
 from pytgcalls.types import Update
-from pytgcalls.types.input_stream import AudioStream, InputStream
 from pytgcalls.types.input_stream import AudioStream, InputStream
 from pytgcalls.types.input_stream.audio import YouTubeAudio
 
