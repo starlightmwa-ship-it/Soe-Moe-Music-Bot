@@ -9,7 +9,11 @@ from pyrogram.types import Message
 from flask import Flask, jsonify
 import yt_dlp
 from pymongo import MongoClient
+
+# PyTgCalls 5.0.0 အတွက် import ပြင်ဆင်ချက်
+import pytgcalls
 from pytgcalls import PyTgCalls
+from pytgcalls.types import Update
 from pytgcalls.types.input_stream import AudioStream, InputStream
 from pytgcalls.types.input_stream.audio import YouTubeAudio
 
@@ -65,7 +69,6 @@ async def get_audio_details(query: str, requester: str = ""):
         if 'entries' in info:
             info = info['entries'][0]
         
-        # Get best audio stream URL
         audio_url = None
         if info.get('url'):
             audio_url = info['url']
@@ -93,9 +96,15 @@ async def start_playback(chat_id: int):
     now_playing[chat_id] = song
     
     try:
+        print(f"Starting playback in {chat_id}: {song['title']}")
         await call.join_group_call(
             chat_id,
-            InputStream(YouTubeAudio(song['url'])),
+            InputStream(
+                YouTubeAudio(
+                    song['url'],
+                    audio_parameters=None,
+                )
+            ),
         )
         duration_min = song['duration'] // 60
         duration_sec = song['duration'] % 60
@@ -108,15 +117,18 @@ async def start_playback(chat_id: int):
             
     except Exception as e:
         error_msg = str(e)[:100]
-        await app.send_message(chat_id, f"❌ **Error:** {error_msg}")
         print(f"Playback error in {chat_id}: {e}")
+        await app.send_message(chat_id, f"❌ **Error:** {error_msg}")
 
 # ---------- Bot Commands ----------
 @app.on_message(filters.command("start") & filters.private)
 async def start_cmd(_, message: Message):
     await message.reply("🎵 **Music Bot is Alive!**\nAdd me to group and use /play")
     await asyncio.sleep(10)
-    await message.delete()
+    try:
+        await message.delete()
+    except:
+        pass
 
 @app.on_message(filters.command("help"))
 async def help_cmd(_, message: Message):
@@ -131,7 +143,10 @@ async def help_cmd(_, message: Message):
 /ping - Check bot status"""
     await message.reply(text)
     await asyncio.sleep(15)
-    await message.delete()
+    try:
+        await message.delete()
+    except:
+        pass
 
 @app.on_message(filters.command("play") & filters.group)
 async def play_cmd(_, message: Message):
@@ -140,7 +155,10 @@ async def play_cmd(_, message: Message):
     if len(message.command) < 2:
         await message.reply("❓ **Usage:** `/play song name`")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
         return
     
     query = " ".join(message.command[1:])
@@ -151,8 +169,11 @@ async def play_cmd(_, message: Message):
     if not song.get('url'):
         await status_msg.edit("❌ **Song not found!**")
         await asyncio.sleep(5)
-        await status_msg.delete()
-        await message.delete()
+        try:
+            await status_msg.delete()
+            await message.delete()
+        except:
+            pass
         return
     
     if chat_id not in queues:
@@ -162,14 +183,23 @@ async def play_cmd(_, message: Message):
     if chat_id not in now_playing:
         await status_msg.edit(f"▶️ **Playing:** {song['title'][:50]}")
         await start_playback(chat_id)
-        await status_msg.delete()
+        try:
+            await status_msg.delete()
+        except:
+            pass
     else:
         await status_msg.edit(f"✅ **Added to queue:** {song['title'][:50]}\n📍 Position: {len(queues[chat_id])}")
         await asyncio.sleep(10)
-        await status_msg.delete()
+        try:
+            await status_msg.delete()
+        except:
+            pass
     
     await asyncio.sleep(10)
-    await message.delete()
+    try:
+        await message.delete()
+    except:
+        pass
 
 @app.on_message(filters.command("pause") & filters.group)
 async def pause_cmd(_, message: Message):
@@ -177,11 +207,17 @@ async def pause_cmd(_, message: Message):
         await call.pause_stream(message.chat.id)
         await message.reply("⏸ **Paused**")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
     except Exception as e:
         await message.reply(f"❌ {str(e)[:100]}")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
 
 @app.on_message(filters.command("resume") & filters.group)
 async def resume_cmd(_, message: Message):
@@ -189,11 +225,17 @@ async def resume_cmd(_, message: Message):
         await call.resume_stream(message.chat.id)
         await message.reply("▶️ **Resumed**")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
     except Exception as e:
         await message.reply(f"❌ {str(e)[:100]}")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
 
 @app.on_message(filters.command("skip") & filters.group)
 async def skip_cmd(_, message: Message):
@@ -207,11 +249,17 @@ async def skip_cmd(_, message: Message):
             now_playing.pop(chat_id, None)
             await message.reply("⏹ **Queue empty, stopping...**")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
     except Exception as e:
         await message.reply(f"❌ {str(e)[:100]}")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
 
 @app.on_message(filters.command("end") & filters.group)
 async def end_cmd(_, message: Message):
@@ -222,11 +270,17 @@ async def end_cmd(_, message: Message):
         now_playing.pop(chat_id, None)
         await message.reply("🛑 **Stopped and cleared queue**")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
     except Exception as e:
         await message.reply(f"❌ {str(e)[:100]}")
         await asyncio.sleep(5)
-        await message.delete()
+        try:
+            await message.delete()
+        except:
+            pass
 
 @app.on_message(filters.command("queue") & filters.group)
 async def queue_cmd(_, message: Message):
@@ -243,7 +297,10 @@ async def queue_cmd(_, message: Message):
             text += f"\n... and {len(queues[chat_id]) - 10} more"
         await message.reply(text)
     await asyncio.sleep(15)
-    await message.delete()
+    try:
+        await message.delete()
+    except:
+        pass
 
 @app.on_message(filters.command("ping"))
 async def ping_cmd(_, message: Message):
@@ -253,12 +310,16 @@ async def ping_cmd(_, message: Message):
     latency = int((end - start).total_seconds() * 1000)
     await msg.edit(f"🏓 **Pong!**\n⏱ Latency: `{latency} ms`")
     await asyncio.sleep(10)
-    await message.delete()
+    try:
+        await message.delete()
+    except:
+        pass
 
 # ---------- Voice Chat Events ----------
 @call.on_stream_end()
 async def on_stream_end(chat_id: int):
     """သီချင်းပြီးသွားရင် နောက်တစ်ပုဒ် ဖွင့်မယ်"""
+    print(f"Stream ended in {chat_id}")
     now_playing.pop(chat_id, None)
     if chat_id in queues and len(queues[chat_id]) > 0:
         await start_playback(chat_id)
@@ -281,7 +342,8 @@ async def main():
     await call.start()
     
     print("\n✅ **Music Bot is RUNNING!**")
-    print(f"🤖 Bot: @{(await app.get_me()).username}")
+    bot_info = await app.get_me()
+    print(f"🤖 Bot: @{bot_info.username}")
     print(f"📡 Health check: http://localhost:{PORT}/health")
     
     await asyncio.Event().wait()
