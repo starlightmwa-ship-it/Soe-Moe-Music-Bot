@@ -11,5 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# ဒီ command ကို သေချာအောင်ထားပါ
+# Pyrogram အတွက် speedup (optional)
+RUN pip install tgcrypto
+
 CMD ["gunicorn", "main:web_app", "--bind", "0.0.0.0:8080", "--worker-class", "sync", "--timeout", "120"]
