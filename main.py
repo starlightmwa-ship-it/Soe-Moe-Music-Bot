@@ -10,8 +10,7 @@ from flask import Flask, jsonify
 import yt_dlp
 from pymongo import MongoClient
 
-# PyTgCalls 5.0.0 အတွက် import ပြင်ဆင်ချက်
-import pytgcalls
+# PyTgCalls 3.0.0.dev24 အတွက် import
 from pytgcalls import PyTgCalls
 from pytgcalls.types import Update
 from pytgcalls.types.input_stream import AudioStream, InputStream
@@ -69,6 +68,7 @@ async def get_audio_details(query: str, requester: str = ""):
         if 'entries' in info:
             info = info['entries'][0]
         
+        # Get best audio stream URL
         audio_url = None
         if info.get('url'):
             audio_url = info['url']
@@ -102,7 +102,6 @@ async def start_playback(chat_id: int):
             InputStream(
                 YouTubeAudio(
                     song['url'],
-                    audio_parameters=None,
                 )
             ),
         )
