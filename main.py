@@ -10,8 +10,9 @@ from flask import Flask, jsonify
 import yt_dlp
 from pymongo import MongoClient
 
-# PyTgCalls 3.0.0.dev24 အတွက် import
-from pytgcalls import PyTgCalls
+# PyTgCalls 3.0.0.dev24 အတွက် မှန်ကန်တဲ့ import (PyTgCalls မဟုတ်ဘူး)
+import pytgcalls
+from pytgcalls import GroupCallFactory
 from pytgcalls.types import Update
 from pytgcalls.types.input_stream import AudioStream, InputStream
 from pytgcalls.types.input_stream.audio import YouTubeAudio
@@ -39,7 +40,11 @@ def run_web():
 # ---------- Telegram Clients ----------
 app = Client("MusicBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 assistant = Client("Assistant", api_id=API_ID, api_hash=API_HASH, session_string=ASSISTANT_SESSION)
-call = PyTgCalls(assistant)
+
+# GroupCallFactory နဲ့ PyTgCalls အစား ဒီလိုသုံးပါ
+group_call_factory = GroupCallFactory(assistant)
+call = group_call_factory.get_group_call()
+call.on_ended(lambda chat_id: asyncio.create_task(on_stream_end(chat_id)))
 
 # ---------- MongoDB ----------
 mongo_client = MongoClient(MONGO_URI) if MONGO_URI else None
@@ -68,7 +73,6 @@ async def get_audio_details(query: str, requester: str = ""):
         if 'entries' in info:
             info = info['entries'][0]
         
-        # Get best audio stream URL
         audio_url = None
         if info.get('url'):
             audio_url = info['url']
@@ -97,14 +101,16 @@ async def start_playback(chat_id: int):
     
     try:
         print(f"Starting playback in {chat_id}: {song['title']}")
-        await call.join_group_call(
+        
+        # Audio stream စတင်ခြင်း
+        await call.start(chat_id)
+        await call.set_stream(
             chat_id,
-            InputStream(
-                YouTubeAudio(
-                    song['url'],
-                )
-            ),
+            YouTubeAudio(
+                song['url'],
+            )
         )
+        
         duration_min = song['duration'] // 60
         duration_sec = song['duration'] % 60
         text = f"**▶️ Now Playing**\n\n🎵 **{song['title'][:60]}**\n⏱ `{duration_min}:{duration_sec:02d}`\n👤 {song['requester']}"
@@ -118,6 +124,15 @@ async def start_playback(chat_id: int):
         error_msg = str(e)[:100]
         print(f"Playback error in {chat_id}: {e}")
         await app.send_message(chat_id, f"❌ **Error:** {error_msg}")
+
+async def on_stream_end(chat_id: int):
+    """သီချင်းပြီးသွားရင် နောက်တစ်ပုဒ် ဖွင့်မယ်"""
+    print(f"Stream ended in {chat_id}")
+    now_playing.pop(chat_id, None)
+    if chat_id in queues and len(queues[chat_id]) > 0:
+        await start_playback(chat_id)
+    else:
+        await call.stop(chat_id)
 
 # ---------- Bot Commands ----------
 @app.on_message(filters.command("start") & filters.private)
@@ -240,12 +255,12 @@ async def resume_cmd(_, message: Message):
 async def skip_cmd(_, message: Message):
     chat_id = message.chat.id
     try:
-        await call.leave_group_call(chat_id)
+        await call.stop(chat_id)
+        now_playing.pop(chat_id, None)
         if chat_id in queues and len(queues[chat_id]) > 0:
             await start_playback(chat_id)
             await message.reply("⏭ **Skipped to next song**")
         else:
-            now_playing.pop(chat_id, None)
             await message.reply("⏹ **Queue empty, stopping...**")
         await asyncio.sleep(5)
         try:
@@ -264,7 +279,7 @@ async def skip_cmd(_, message: Message):
 async def end_cmd(_, message: Message):
     chat_id = message.chat.id
     try:
-        await call.leave_group_call(chat_id)
+        await call.stop(chat_id)
         queues[chat_id] = []
         now_playing.pop(chat_id, None)
         await message.reply("🛑 **Stopped and cleared queue**")
@@ -313,17 +328,6 @@ async def ping_cmd(_, message: Message):
         await message.delete()
     except:
         pass
-
-# ---------- Voice Chat Events ----------
-@call.on_stream_end()
-async def on_stream_end(chat_id: int):
-    """သီချင်းပြီးသွားရင် နောက်တစ်ပုဒ် ဖွင့်မယ်"""
-    print(f"Stream ended in {chat_id}")
-    now_playing.pop(chat_id, None)
-    if chat_id in queues and len(queues[chat_id]) > 0:
-        await start_playback(chat_id)
-    else:
-        await call.leave_group_call(chat_id)
 
 # ---------- Main ----------
 async def main():
