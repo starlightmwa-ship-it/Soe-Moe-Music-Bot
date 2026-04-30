@@ -1,0 +1,9 @@
+pyrogram==2.0.106
+PyTgCalls==5.1.1
+yt-dlp==2024.12.13
+pymongo==4.10.1
+pillow==10.4.0
+flask==3.0.3
+python-dotenv==1.0.1
+asyncio
+aiohttp
