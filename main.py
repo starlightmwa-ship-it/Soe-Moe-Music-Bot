@@ -10,10 +10,8 @@ from flask import Flask, jsonify
 import yt_dlp
 from pymongo import MongoClient
 
-# PyTgCalls 3.0.0.dev24 အတွက် မှန်ကန်တဲ့ import (PyTgCalls မဟုတ်ဘူး)
-import pytgcalls
+# PyTgCalls
 from pytgcalls import GroupCallFactory
-from pytgcalls.types import Update
 from pytgcalls.types.input_stream import AudioStream, InputStream
 from pytgcalls.types.input_stream.audio import YouTubeAudio
 
@@ -41,14 +39,9 @@ def run_web():
 app = Client("MusicBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 assistant = Client("Assistant", api_id=API_ID, api_hash=API_HASH, session_string=ASSISTANT_SESSION)
 
-# GroupCallFactory နဲ့ PyTgCalls အစား ဒီလိုသုံးပါ
+# Voice Call
 group_call_factory = GroupCallFactory(assistant)
 call = group_call_factory.get_group_call()
-call.on_ended(lambda chat_id: asyncio.create_task(on_stream_end(chat_id)))
-
-# ---------- MongoDB ----------
-mongo_client = MongoClient(MONGO_URI) if MONGO_URI else None
-db = mongo_client["music_bot"] if mongo_client else None
 
 # ---------- Data ----------
 queues: Dict[int, List[Dict]] = {}
@@ -56,12 +49,10 @@ now_playing: Dict[int, Dict] = {}
 
 # ---------- Helper Functions ----------
 async def get_audio_details(query: str, requester: str = ""):
-    """YouTube ကနေ သီချင်းအချက်အလက် ထုတ်ယူမယ်"""
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
         'no_warnings': True,
-        'extract_flat': False,
     }
     
     if not (query.startswith("http://") or query.startswith("https://")):
@@ -86,13 +77,11 @@ async def get_audio_details(query: str, requester: str = ""):
             "title": info.get('title', 'Unknown'),
             "duration": info.get('duration', 0),
             "url": audio_url,
-            "webpage_url": info.get('webpage_url', ''),
             "thumbnail": info.get('thumbnail', ''),
             "requester": requester
         }
 
 async def start_playback(chat_id: int):
-    """Queue ထဲက သီချင်းကို စဖွင့်မယ်"""
     if chat_id not in queues or len(queues[chat_id]) == 0:
         return
     
@@ -100,16 +89,8 @@ async def start_playback(chat_id: int):
     now_playing[chat_id] = song
     
     try:
-        print(f"Starting playback in {chat_id}: {song['title']}")
-        
-        # Audio stream စတင်ခြင်း
         await call.start(chat_id)
-        await call.set_stream(
-            chat_id,
-            YouTubeAudio(
-                song['url'],
-            )
-        )
+        await call.set_stream(chat_id, YouTubeAudio(song['url']))
         
         duration_min = song['duration'] // 60
         duration_sec = song['duration'] % 60
@@ -119,75 +100,73 @@ async def start_playback(chat_id: int):
             await app.send_photo(chat_id, song['thumbnail'], caption=text)
         else:
             await app.send_message(chat_id, text)
-            
     except Exception as e:
-        error_msg = str(e)[:100]
-        print(f"Playback error in {chat_id}: {e}")
-        await app.send_message(chat_id, f"❌ **Error:** {error_msg}")
+        print(f"Playback error: {e}")
 
-async def on_stream_end(chat_id: int):
-    """သီချင်းပြီးသွားရင် နောက်တစ်ပုဒ် ဖွင့်မယ်"""
-    print(f"Stream ended in {chat_id}")
-    now_playing.pop(chat_id, None)
-    if chat_id in queues and len(queues[chat_id]) > 0:
-        await start_playback(chat_id)
-    else:
-        await call.stop(chat_id)
+# ---------- BOT COMMANDS (Group + Private) ----------
 
-# ---------- Bot Commands ----------
-@app.on_message(filters.command("start") & filters.private)
-async def start_cmd(_, message: Message):
-    await message.reply("🎵 **Music Bot is Alive!**\nAdd me to group and use /play")
-    await asyncio.sleep(10)
-    try:
-        await message.delete()
-    except:
-        pass
+# Start command
+@app.on_message(filters.command("start"))
+async def start_command(_, message: Message):
+    text = """**🎵 Music Bot**
 
-@app.on_message(filters.command("help"))
-async def help_cmd(_, message: Message):
-    text = """**📖 Commands:**
+ကျွန်တော်က Voice Chat မှာ YouTube သီချင်းတွေ ဖွင့်ပေးတဲ့ Bot ပါ။
 
-/play <name/link> - Play music
-/pause - Pause playback  
-/resume - Resume playback
-/skip - Skip current song
-/end - Stop and clear queue
-/queue - Show queue
-/ping - Check bot status"""
+**Commands:**
+/play [နာမည်/link] - သီချင်းဖွင့်မယ်
+/pause - ခဏရပ်မယ်
+/resume - ပြန်ဖွင့်မယ်
+/skip - နောက်တစ်ပုဒ်သွားမယ်
+/end - ဖွင့်တာရပ်မယ်
+/queue - တန်းစီစာရင်း
+/ping - Bot အသက်ရှိမရှိစစ်မယ်
+/help - Command စာရင်း
+
+**အသုံးပြုပုံ:** `/play မိုးည`"""
     await message.reply(text)
-    await asyncio.sleep(15)
-    try:
-        await message.delete()
-    except:
-        pass
 
+# Help command
+@app.on_message(filters.command("help"))
+async def help_command(_, message: Message):
+    text = """**📖 Command List**
+
+**Playback:**
+/play [နာမည်/link] - Play music
+/pause - Pause playback
+/resume - Resume playback
+/skip - Skip to next
+/end - Stop playback
+
+**Queue:**
+/queue - Show queue list
+
+**Others:**
+/ping - Check bot status
+/start - Show welcome message
+
+**Examples:**
+`/play မိုးည`
+`/play https://youtube.com/watch?v=...`"""
+    await message.reply(text)
+
+# Play command (Group only)
 @app.on_message(filters.command("play") & filters.group)
-async def play_cmd(_, message: Message):
+async def play_command(_, message: Message):
     chat_id = message.chat.id
     
     if len(message.command) < 2:
-        await message.reply("❓ **Usage:** `/play song name`")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
+        await message.reply("❓ **အသုံးပြုပုံ:** `/play သီချင်းနာမည်`")
         return
     
     query = " ".join(message.command[1:])
-    status_msg = await message.reply("🔍 **Searching on YouTube...**")
+    msg = await message.reply("🔍 **YouTube မှာ ရှာနေပါတယ်...**")
     
     song = await get_audio_details(query, message.from_user.first_name)
     
     if not song.get('url'):
-        await status_msg.edit("❌ **Song not found!**")
+        await msg.edit("❌ **သီချင်းမတွေ့ပါဘူး**")
         await asyncio.sleep(5)
-        try:
-            await status_msg.delete()
-            await message.delete()
-        except:
-            pass
+        await msg.delete()
         return
     
     if chat_id not in queues:
@@ -195,146 +174,96 @@ async def play_cmd(_, message: Message):
     queues[chat_id].append(song)
     
     if chat_id not in now_playing:
-        await status_msg.edit(f"▶️ **Playing:** {song['title'][:50]}")
+        await msg.edit(f"▶️ **ဖွင့်နေပါတယ်:** {song['title'][:50]}")
         await start_playback(chat_id)
-        try:
-            await status_msg.delete()
-        except:
-            pass
     else:
-        await status_msg.edit(f"✅ **Added to queue:** {song['title'][:50]}\n📍 Position: {len(queues[chat_id])}")
+        await msg.edit(f"✅ **Queue ထဲထည့်လိုက်ပါပြီ**\n🎵 {song['title'][:50]}\n📍 Position: {len(queues[chat_id])}")
         await asyncio.sleep(10)
-        try:
-            await status_msg.delete()
-        except:
-            pass
-    
-    await asyncio.sleep(10)
-    try:
-        await message.delete()
-    except:
-        pass
+        await msg.delete()
 
+# Pause command
 @app.on_message(filters.command("pause") & filters.group)
-async def pause_cmd(_, message: Message):
+async def pause_command(_, message: Message):
     try:
         await call.pause_stream(message.chat.id)
         await message.reply("⏸ **Paused**")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
     except Exception as e:
         await message.reply(f"❌ {str(e)[:100]}")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
 
+# Resume command
 @app.on_message(filters.command("resume") & filters.group)
-async def resume_cmd(_, message: Message):
+async def resume_command(_, message: Message):
     try:
         await call.resume_stream(message.chat.id)
         await message.reply("▶️ **Resumed**")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
     except Exception as e:
         await message.reply(f"❌ {str(e)[:100]}")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
 
+# Skip command
 @app.on_message(filters.command("skip") & filters.group)
-async def skip_cmd(_, message: Message):
+async def skip_command(_, message: Message):
     chat_id = message.chat.id
     try:
         await call.stop(chat_id)
         now_playing.pop(chat_id, None)
         if chat_id in queues and len(queues[chat_id]) > 0:
             await start_playback(chat_id)
-            await message.reply("⏭ **Skipped to next song**")
+            await message.reply("⏭ **Skipped**")
         else:
-            await message.reply("⏹ **Queue empty, stopping...**")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
+            await message.reply("⏹ **Queue ကုန်ပါပြီ**")
     except Exception as e:
         await message.reply(f"❌ {str(e)[:100]}")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
 
+# End command
 @app.on_message(filters.command("end") & filters.group)
-async def end_cmd(_, message: Message):
+async def end_command(_, message: Message):
     chat_id = message.chat.id
     try:
         await call.stop(chat_id)
         queues[chat_id] = []
         now_playing.pop(chat_id, None)
-        await message.reply("🛑 **Stopped and cleared queue**")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
+        await message.reply("🛑 **Stopped**")
     except Exception as e:
         await message.reply(f"❌ {str(e)[:100]}")
-        await asyncio.sleep(5)
-        try:
-            await message.delete()
-        except:
-            pass
 
+# Queue command
 @app.on_message(filters.command("queue") & filters.group)
-async def queue_cmd(_, message: Message):
+async def queue_command(_, message: Message):
     chat_id = message.chat.id
     if chat_id not in queues or len(queues[chat_id]) == 0:
-        await message.reply("📋 **Queue is empty**")
+        await message.reply("📋 **Queue ထဲမှာ သီချင်းမရှိပါဘူး**")
     else:
-        text = "**📋 Queue List:**\n\n"
+        text = "**📋 Queue List**\n\n"
         for i, song in enumerate(queues[chat_id][:10], 1):
-            minutes = song['duration'] // 60
-            seconds = song['duration'] % 60
-            text += f"{i}. **{song['title'][:40]}** ({minutes}:{seconds:02d})\n"
+            text += f"{i}. {song['title'][:40]}\n"
         if len(queues[chat_id]) > 10:
-            text += f"\n... and {len(queues[chat_id]) - 10} more"
+            text += f"\n...နဲ့ {len(queues[chat_id]) - 10} ပုဒ်ထပ်ရှိသေးတယ်"
         await message.reply(text)
-    await asyncio.sleep(15)
-    try:
-        await message.delete()
-    except:
-        pass
 
+# Ping command
 @app.on_message(filters.command("ping"))
-async def ping_cmd(_, message: Message):
+async def ping_command(_, message: Message):
     start = datetime.now()
     msg = await message.reply("🏓 **Pong!**")
     end = datetime.now()
-    latency = int((end - start).total_seconds() * 1000)
-    await msg.edit(f"🏓 **Pong!**\n⏱ Latency: `{latency} ms`")
-    await asyncio.sleep(10)
-    try:
-        await message.delete()
-    except:
-        pass
+    latency = (end - start).microseconds / 1000
+    await msg.edit(f"🏓 **Pong!**\n⏱ Latency: `{latency:.0f} ms`")
+
+# Voice chat events
+@call.on_stream_end()
+async def on_stream_end(chat_id: int):
+    now_playing.pop(chat_id, None)
+    if chat_id in queues and len(queues[chat_id]) > 0:
+        await start_playback(chat_id)
+    else:
+        await call.stop(chat_id)
 
 # ---------- Main ----------
 async def main():
     # Start web server
     web_thread = Thread(target=run_web, daemon=True)
     web_thread.start()
-    print(f"🌐 Web server started on port {PORT}")
+    print(f"🌐 Web server on port {PORT}")
     
     # Start clients
     print("Starting assistant...")
@@ -347,7 +276,7 @@ async def main():
     print("\n✅ **Music Bot is RUNNING!**")
     bot_info = await app.get_me()
     print(f"🤖 Bot: @{bot_info.username}")
-    print(f"📡 Health check: http://localhost:{PORT}/health")
+    print(f"📡 Health: https://soe-moe-music-bot.onrender.com/health")
     
     await asyncio.Event().wait()
 
