@@ -1,8 +1,9 @@
-telethon==1.36.0
-pytgcalls==4.0.0
+pyrogram==2.0.106
+pytgcalls==3.0.0.dev24
 yt-dlp==2024.12.13
 pymongo==4.10.1
 Flask==3.0.3
 gunicorn==21.2.0
 python-dotenv==1.0.1
 aiohttp==3.10.5
+cryptg==0.5.0
