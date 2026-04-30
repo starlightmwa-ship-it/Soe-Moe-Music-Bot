@@ -1,6 +1,0 @@
-# .dockerignore
-__pycache__
-*.pyc
-.env
-# assistant.session ကို ignore မလုပ်ပါနဲ့
-# *.session ဆိုတာမထည့်ပါနဲ့
