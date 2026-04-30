@@ -6,19 +6,21 @@ from typing import Dict, List
 
 from telethon import TelegramClient, events
 from telethon.tl.types import Message
-from telethon.utils import get_input_location
 from flask import Flask, jsonify
 import yt_dlp
 from pymongo import MongoClient
 from pytgcalls import PyTgCalls
 from pytgcalls.types import Update
-from pytgcalls.types.input_stream import AudioStream, InputStream
-from pytgcalls.types.input_stream.audio import YouTubeAudio
+from pytgcalls.types.input_stream import AudioStream, InputStream, AudioPiped
 
-from config import (
-    API_ID, API_HASH, BOT_TOKEN, ASSISTANT_SESSION,
-    MONGO_URI, OWNER_ID, PORT
-)
+# ---------- Environment Variables ----------
+API_ID = int(os.environ.get("API_ID", 31427123))
+API_HASH = os.environ.get("API_HASH", "27b540811ee6d2423f86a779848515ee")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8783739539:AAFPM95HIrSJQ-yoPtc-r8guZ-QJFgPymWA")
+ASSISTANT_SESSION = os.environ.get("ASSISTANT_SESSION", "")
+MONGO_URI = os.environ.get("MONGO_URI", "")
+OWNER_ID = int(os.environ.get("OWNER_ID", 6904606472))
+PORT = int(os.environ.get("PORT", 8080))
 
 # ---------- Flask Web Server ----------
 web_app = Flask(__name__)
@@ -29,34 +31,32 @@ def health():
     return jsonify({"status": "alive", "timestamp": datetime.now().isoformat()})
 
 def run_web():
-    web_app.run(host='0.0.0.0', port=PORT, debug=False)
+    web_app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
 
-# ---------- Telegram Bot (Telethon) ----------
+# ---------- Telegram Client ----------
 bot = TelegramClient("MusicBot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-
-# Assistant (Userbot)
 assistant = TelegramClient("Assistant", API_ID, API_HASH).start(session=ASSISTANT_SESSION)
 call = PyTgCalls(assistant)
 
 # ---------- MongoDB ----------
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client["music_bot"]
-queue_collection = db["queues"]
-settings_collection = db["settings"]
+mongo_client = MongoClient(MONGO_URI) if MONGO_URI else None
+db = mongo_client["music_bot"] if mongo_client else None
 
-# ---------- Global Data ----------
+# ---------- Data ----------
 queues: Dict[int, List[Dict]] = {}
 now_playing: Dict[int, Dict] = {}
-loop_mode: Dict[int, bool] = {}
 
 # ---------- Helper Functions ----------
-async def get_audio_details(query: str, requester: str = None):
-    """YouTube ကနေ သီချင်းအချက်အလက် ထုတ်ယူခြင်း"""
+async def get_audio_details(query: str, requester: str = ""):
+    """YouTube ကနေ သီချင်းအချက်အလက် ထုတ်ယူမယ်"""
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
         'no_warnings': True,
+        'extract_flat': False,
     }
+    
+    # URL မဟုတ်ရင် search
     if not (query.startswith("http://") or query.startswith("https://")):
         query = f"ytsearch:{query}"
     
@@ -66,10 +66,11 @@ async def get_audio_details(query: str, requester: str = None):
         if 'entries' in info:
             info = info['entries'][0]
         
+        # Audio URL ရှာမယ်
         audio_url = None
-        if 'url' in info:
+        if info.get('url'):
             audio_url = info['url']
-        elif 'formats' in info:
+        elif info.get('formats'):
             for f in info['formats']:
                 if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
                     audio_url = f['url']
@@ -81,66 +82,50 @@ async def get_audio_details(query: str, requester: str = None):
             "url": audio_url,
             "webpage_url": info.get('webpage_url', ''),
             "thumbnail": info.get('thumbnail', ''),
-            "requester": requester or "Unknown"
+            "requester": requester
         }
 
-async def delete_delay(message, delay: int = 10):
-    await asyncio.sleep(delay)
-    try:
-        await message.delete()
-    except:
-        pass
-
-async def send_playing_message(chat_id: int, song: Dict):
-    duration_min = song['duration'] // 60
-    duration_sec = song['duration'] % 60
-    text = f"**▶️ Now Playing**\n\n🎵 **{song['title'][:50]}**\n⏱ `{duration_min}:{duration_sec:02d}`\n👤 {song['requester']}"
-    try:
-        if song.get('thumbnail'):
-            await bot.send_file(chat_id, song['thumbnail'], caption=text)
-        else:
-            await bot.send_message(chat_id, text)
-    except:
-        await bot.send_message(chat_id, text)
-
 async def start_playback(chat_id: int):
-    if loop_mode.get(chat_id, False) and chat_id in now_playing:
-        song = now_playing[chat_id]
-    elif chat_id in queues and len(queues[chat_id]) > 0:
-        song = queues[chat_id].pop(0)
-        now_playing[chat_id] = song
-    else:
+    """Queue ထဲက သီချင်းကို စဖွင့်မယ်"""
+    if chat_id not in queues or len(queues[chat_id]) == 0:
         return
     
+    song = queues[chat_id].pop(0)
+    now_playing[chat_id] = song
+    
     try:
+        # AudioStream ကို URL နဲ့ တိုက်ရိုက်ဖွင့်မယ်
+        audio_stream = AudioPiped(song['url'])
         await call.join_group_call(
             chat_id,
-            InputStream(YouTubeAudio(song['url'])),
+            InputStream(audio_stream),
         )
-        await send_playing_message(chat_id, song)
+        await bot.send_message(chat_id, f"**▶️ Now Playing**\n\n🎵 **{song['title'][:60]}**\n👤 {song['requester']}")
     except Exception as e:
-        print(f"Playback error: {e}")
+        error_msg = str(e)[:100]
+        await bot.send_message(chat_id, f"❌ **Playback Error:** {error_msg}")
+        print(f"Playback error in {chat_id}: {e}")
 
-# ---------- Bot Commands ----------
+# ---------- Command Handlers ----------
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
-    await event.reply("🎵 **Hello! I'm Advanced Music Bot**\nSend /help for commands")
-    await delete_delay(event.message, 10)
+    await event.reply("🎵 **Hello! Music Bot is Alive!**\nSend /play <song name> in groups")
+    await asyncio.sleep(10)
+    await event.delete()
 
 @bot.on(events.NewMessage(pattern='/help'))
 async def help_handler(event):
     text = """**📖 Commands:**
-
-/play [name/link] - Play song
-/pause - Pause
-/resume - Resume
-/skip - Skip
-/end - Stop
+/play <name/link> - Play music
+/pause - Pause playback
+/resume - Resume playback
+/skip - Skip current song
+/end - Stop and clear queue
 /queue - Show queue
-/ping - Check status
-/setting - Settings (admins only)"""
+/ping - Check bot status"""
     await event.reply(text)
-    await delete_delay(event.message, 15)
+    await asyncio.sleep(15)
+    await event.delete()
 
 @bot.on(events.NewMessage(pattern='/play(?: |$)(.*)'))
 async def play_handler(event):
@@ -148,8 +133,9 @@ async def play_handler(event):
     query = event.pattern_match.group(1).strip()
     
     if not query:
-        await event.reply("❓ Usage: `/play song name`")
-        await delete_delay(event.message, 10)
+        await event.reply("❓ **Usage:** `/play song name` or `/play YouTube link`")
+        await asyncio.sleep(5)
+        await event.delete()
         return
     
     status_msg = await event.reply("🔍 **Searching on YouTube...**")
@@ -157,9 +143,10 @@ async def play_handler(event):
     song = await get_audio_details(query, event.sender.first_name)
     
     if not song.get('url'):
-        await status_msg.edit("❌ **Song not found!**")
+        await status_msg.edit("❌ **Song not found on YouTube!**")
         await asyncio.sleep(5)
         await status_msg.delete()
+        await event.delete()
         return
     
     if chat_id not in queues:
@@ -167,48 +154,58 @@ async def play_handler(event):
     queues[chat_id].append(song)
     
     if chat_id not in now_playing:
-        await status_msg.edit(f"✅ **Playing:** {song['title'][:50]}")
+        await status_msg.edit(f"▶️ **Now Playing:** {song['title'][:50]}")
         await start_playback(chat_id)
         await status_msg.delete()
     else:
         await status_msg.edit(f"✅ **Added to queue:** {song['title'][:50]}\n📍 Position: {len(queues[chat_id])}")
-        await delete_delay(status_msg, 10)
+        await asyncio.sleep(10)
+        await status_msg.delete()
     
-    await delete_delay(event.message, 10)
+    await asyncio.sleep(10)
+    await event.delete()
 
 @bot.on(events.NewMessage(pattern='/pause'))
 async def pause_handler(event):
     try:
         await call.pause_stream(event.chat_id)
         await event.reply("⏸ **Paused**")
-        await delete_delay(event.message, 10)
+        await asyncio.sleep(5)
+        await event.delete()
     except Exception as e:
         await event.reply(f"❌ {str(e)[:100]}")
+        await asyncio.sleep(5)
+        await event.delete()
 
 @bot.on(events.NewMessage(pattern='/resume'))
 async def resume_handler(event):
     try:
         await call.resume_stream(event.chat_id)
         await event.reply("▶️ **Resumed**")
-        await delete_delay(event.message, 10)
+        await asyncio.sleep(5)
+        await event.delete()
     except Exception as e:
         await event.reply(f"❌ {str(e)[:100]}")
+        await asyncio.sleep(5)
+        await event.delete()
 
 @bot.on(events.NewMessage(pattern='/skip'))
 async def skip_handler(event):
     chat_id = event.chat_id
     try:
-        await call.stop_stream(chat_id)
+        await call.leave_group_call(chat_id)
         if chat_id in queues and len(queues[chat_id]) > 0:
             await start_playback(chat_id)
-            await event.reply("⏭ **Skipped**")
+            await event.reply("⏭ **Skipped to next song**")
         else:
-            if chat_id in now_playing:
-                del now_playing[chat_id]
-            await event.reply("⏹ **Queue empty**")
+            now_playing.pop(chat_id, None)
+            await event.reply("⏹ **Queue is empty, stopping...**")
+        await asyncio.sleep(5)
+        await event.delete()
     except Exception as e:
         await event.reply(f"❌ {str(e)[:100]}")
-    await delete_delay(event.message, 10)
+        await asyncio.sleep(5)
+        await event.delete()
 
 @bot.on(events.NewMessage(pattern='/end'))
 async def end_handler(event):
@@ -216,12 +213,14 @@ async def end_handler(event):
     try:
         await call.leave_group_call(chat_id)
         queues[chat_id] = []
-        if chat_id in now_playing:
-            del now_playing[chat_id]
-        await event.reply("🛑 **Stopped**")
+        now_playing.pop(chat_id, None)
+        await event.reply("🛑 **Stopped and cleared queue**")
+        await asyncio.sleep(5)
+        await event.delete()
     except Exception as e:
         await event.reply(f"❌ {str(e)[:100]}")
-    await delete_delay(event.message, 10)
+        await asyncio.sleep(5)
+        await event.delete()
 
 @bot.on(events.NewMessage(pattern='/queue'))
 async def queue_handler(event):
@@ -229,11 +228,16 @@ async def queue_handler(event):
     if chat_id not in queues or len(queues[chat_id]) == 0:
         await event.reply("📋 **Queue is empty**")
     else:
-        text = "**📋 Queue:**\n\n"
+        text = "**📋 Queue List:**\n\n"
         for i, song in enumerate(queues[chat_id][:10], 1):
-            text += f"{i}. {song['title'][:40]}\n"
+            minutes = song['duration'] // 60
+            seconds = song['duration'] % 60
+            text += f"{i}. **{song['title'][:40]}** ({minutes}:{seconds:02d})\n"
+        if len(queues[chat_id]) > 10:
+            text += f"\n... and {len(queues[chat_id]) - 10} more"
         await event.reply(text)
-    await delete_delay(event.message, 15)
+    await asyncio.sleep(15)
+    await event.delete()
 
 @bot.on(events.NewMessage(pattern='/ping'))
 async def ping_handler(event):
@@ -242,28 +246,32 @@ async def ping_handler(event):
     end = datetime.now()
     latency = int((end - start).total_seconds() * 1000)
     await msg.edit(f"🏓 **Pong!**\n⏱ Latency: `{latency} ms`")
-    await delete_delay(msg, 10)
-    await delete_delay(event.message, 10)
+    await asyncio.sleep(10)
+    await event.delete()
 
-# ---------- Voice Chat Events ----------
+# ---------- Voice Chat Event ----------
+@call.on_kicked()
+@call.on_closed()
+@call.on_left()
+async def on_voice_end(chat_id: int):
+    now_playing.pop(chat_id, None)
+
 @call.on_stream_end()
 async def on_stream_end(chat_id: int):
-    if chat_id in now_playing:
-        del now_playing[chat_id]
-    
-    if loop_mode.get(chat_id, False):
-        await start_playback(chat_id)
-    elif chat_id in queues and len(queues[chat_id]) > 0:
+    now_playing.pop(chat_id, None)
+    if chat_id in queues and len(queues[chat_id]) > 0:
         await start_playback(chat_id)
     else:
         await call.leave_group_call(chat_id)
 
 # ---------- Main ----------
 async def main():
-    # Web thread
+    # Web server thread
     web_thread = Thread(target=run_web, daemon=True)
     web_thread.start()
+    print(f"🌐 Web server started on port {PORT}")
     
+    # Telegram clients
     print("Starting bot...")
     await bot.start()
     print("Starting assistant...")
@@ -271,8 +279,9 @@ async def main():
     print("Starting voice calls...")
     await call.start()
     
-    print("\n✅ **Bot is running!**")
-    print(f"🌐 Web: http://localhost:{PORT}")
+    print("\n✅ **Music Bot is RUNNING!**")
+    print(f"🤖 Bot: @{(await bot.get_me()).username}")
+    print(f"📡 Health check: http://localhost:{PORT}/health")
     
     await asyncio.Event().wait()
 
