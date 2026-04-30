@@ -2,7 +2,6 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# FFmpeg (Voice Chat အတွက် မရှိမဖြစ်)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
@@ -12,4 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# ဒီ command ကို သေချာအောင်ထားပါ
 CMD ["gunicorn", "main:web_app", "--bind", "0.0.0.0:8080", "--worker-class", "sync", "--timeout", "120"]
